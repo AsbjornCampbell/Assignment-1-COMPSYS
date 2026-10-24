@@ -1,0 +1,10 @@
+.DS_Store
+__MACOSX/
+*.o
+*.dSYM/
+src/fibs
+src/fauxgrep
+src/fauxgrep-mt
+src/fhistogram
+src/fhistogram-mt
+src.zip
