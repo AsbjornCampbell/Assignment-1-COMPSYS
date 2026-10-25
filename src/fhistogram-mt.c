@@ -10,6 +10,7 @@
 
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/time.h> 
 #include <fts.h>
 
 #include "job_queue.h"
@@ -149,15 +150,16 @@ int main(int argc, char * const *argv) {
     switch (p->fts_info) {
     case FTS_D:
       break;
-    case FTS_F:
-      char *copy = strdup(p->fts_path);  // fts reuses p->fts_path
+    case FTS_F: {
+      char *copy = strdup(p->fts_path);
       if (copy == NULL) {
         err(1, "strdup() failed");
       }
       if (job_queue_push(&jq, copy) != 0) {
-        free(copy);  // queue refused it, so nobody else will free it
+        free(copy);
       }
       break;
+    }
     default:
       break;
     }
