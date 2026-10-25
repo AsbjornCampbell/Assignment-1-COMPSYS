@@ -16,7 +16,7 @@ test: $(TESTS)
 	@set e; for test in $(TESTS); do echo ./$$test; ./$$test; done
 
 clean:
-	rm -rf $(TESTS) $(EXAMPLES) *.o core
+	rm -rf $(TESTS) $(EXAMPLES) *.o core *.dSYM data_*
 	rm -rf data_*
 
 zip: ../src.zip
