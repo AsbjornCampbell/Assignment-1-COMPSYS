@@ -17,6 +17,7 @@ test: $(TESTS)
 
 clean:
 	rm -rf $(TESTS) $(EXAMPLES) *.o core
+	rm -rf data_*
 
 zip: ../src.zip
 
