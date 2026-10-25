@@ -8,3 +8,8 @@ src/fauxgrep-mt
 src/fhistogram
 src/fhistogram-mt
 src.zip
+data_report/
+data_none/
+data_sparse/
+data_dense/
+sample_data/

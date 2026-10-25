@@ -19,6 +19,67 @@
 
 #include "job_queue.h"
 
+
+pthread_mutex_t print_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+void safe_print(char* string){
+  pthread_mutex_lock(&print_mutex);
+  printf("%s", string);
+  pthread_mutex_unlock(&print_mutex);
+}
+
+int fauxgrep_file(char const *needle, char const *path) {
+  FILE *f = fopen(path, "r");
+
+  if (f == NULL) {
+    warn("failed to open %s", path);
+    return -1;
+  }
+
+  char *line = NULL;
+  size_t linelen = 0;
+  int lineno = 1;
+
+  while (getline(&line, &linelen, f) != -1) {
+    if (strstr(line, needle) != NULL) {
+      int size = snprintf(NULL, 0, "%s:%d: %s", path, lineno,line) + 1;
+      char *buffer = malloc(size);
+      snprintf(buffer, size, "%s:%d: %s", path, lineno,line);
+      safe_print(buffer);
+      free(buffer);
+    }
+
+    lineno++;
+  }
+
+  free(line);
+  fclose(f);
+
+  return 0;
+}
+
+
+struct worker_args {
+    struct job_queue *queue;
+    const char *needle;
+};
+
+void *worker(void *arg) {
+  struct worker_args *args = arg;
+  char* file;
+  while (1){
+    int code = job_queue_pop(args->queue, (void **)&file);
+
+    if (code == -1){
+      return NULL;
+    }
+
+    fauxgrep_file(args->needle, file);
+    free(file);
+  }
+}
+
+
 int main(int argc, char * const *argv) {
   if (argc < 2) {
     err(1, "usage: [-n INT] STRING paths...");
@@ -29,6 +90,11 @@ int main(int argc, char * const *argv) {
   char const *needle = argv[1];
   char * const *paths = &argv[2];
 
+  struct job_queue queue;
+
+    if (job_queue_init(&queue, 10) != 0) {
+      err(1, "failed to initialize job queue");
+    }
 
   if (argc > 3 && strcmp(argv[1], "-n") == 0) {
     // Since atoi() simply returns zero on syntax errors, we cannot
@@ -37,21 +103,28 @@ int main(int argc, char * const *argv) {
     // given option is suffixed by garbage, i.e. '123foo' returns
     // '123'.  A more robust solution would use strtol(), but its
     // interface is more complicated, so here we are.
+    
     num_threads = atoi(argv[2]);
 
     if (num_threads < 1) {
-      err(1, "invalid thread count: %s", argv[2]);
+        err(1, "invalid thread count: %s", argv[2]);
     }
-
     needle = argv[3];
     paths = &argv[4];
 
-  } else {
+  } 
+  else {
     needle = argv[1];
     paths = &argv[2];
   }
+  struct worker_args args;
+  args.queue = &queue;
+  args.needle = needle;
 
-  assert(0); // Initialise the job queue and some worker threads here.
+  pthread_t threads[num_threads];
+  for (int i = 0; i < num_threads; i++) {
+    pthread_create(&threads[i], NULL, worker, &args);
+  }
 
   // FTS_LOGICAL = follow symbolic links
   // FTS_NOCHDIR = do not change the working directory of the process
@@ -71,17 +144,26 @@ int main(int argc, char * const *argv) {
     switch (p->fts_info) {
     case FTS_D:
       break;
-    case FTS_F:
-      assert(0); // Process the file p->fts_path, somehow.
+    case FTS_F: {
+      char *file = strdup(p->fts_path);
+      job_queue_push(&queue, file);
       break;
+    }
     default:
       break;
     }
   }
 
   fts_close(ftsp);
+  job_queue_destroy(&queue);
 
-  assert(0); // Shut down the job queue and the worker threads here.
-
+  for (int i = 0; i < num_threads; i++) {
+    pthread_join(threads[i], NULL);
+  }
+  pthread_cond_destroy(&queue.not_empty);
+  pthread_cond_destroy(&queue.not_full);
+  pthread_mutex_destroy(&queue.mutex);
+  pthread_mutex_destroy(&print_mutex);
   return 0;
 }
+
