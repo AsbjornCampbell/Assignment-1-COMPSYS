@@ -14,8 +14,6 @@
 
 #include "job_queue.h"
 
-pthread_mutex_t stdout_mutex = PTHREAD_MUTEX_INITIALIZER;
-
 // err.h contains various nonstandard BSD extensions, but they are
 // very handy.
 #include <err.h>
@@ -25,8 +23,8 @@ pthread_mutex_t stdout_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t stdout_mutex = PTHREAD_MUTEX_INITIALIZER;
 int global_histogram[8] = { 0 };
 
-// Merge local counts into the global histogram this often (in bytes),
-// but print at most once per PRINT_INTERVAL_MS.
+// Merge local counts into the global histogram in bytes,
+// but print once per PRINT_INTERVAL_MS.
 #define MERGE_INTERVAL_BYTES 100000
 #define PRINT_INTERVAL_MS 50
 
@@ -38,15 +36,48 @@ static long now_ms(void) {
   return tv.tv_sec * 1000L + tv.tv_usec / 1000;
 }
 
-
+//Merge a local histogram into the global one.
+//Print if enough time has passed since the last print.
+static void flush_local(int local[8]) {
+  pthread_mutex_lock(&stdout_mutex);
+  merge_histogram(local, global_histogram);  // zeroes local
+  long t = now_ms();
+  if (t - last_print_ms >= PRINT_INTERVAL_MS) {
+    print_histogram(global_histogram);
+    last_print_ms = t;
+  }
+  pthread_mutex_unlock(&stdout_mutex);
+}
+   
 int fhistogram(char const *path) {
-  // TODO: kopiér funktionen fra fhistogram.c
+  FILE *f = fopen(path, "r");
 
-  // TODO: de to steder, hvor der står
-  //   merge_histogram(local_histogram, global_histogram);
-  //   print_histogram(global_histogram);
-  // skal begge kald ligge mellem lock og unlock.
-  // Hvilken mutex? Hvorfor begge kald i samme sektion?
+  if (f == NULL) {
+    pthread_mutex_lock(&stdout_mutex);
+    fflush(stdout);
+    warn("failed to open %s", path);
+    pthread_mutex_unlock(&stdout_mutex);
+    return -1;
+  }
+  int local_histogram[8] = { 0 };
+  unsigned char buf[4096];
+  size_t since_flush = 0;
+  size_t n;
+
+  while ((n = fread(buf, 1, sizeof(buf), f)) > 0) {
+    for (size_t j = 0; j < n; j++) {
+      update_histogram(local_histogram, buf[j]);
+    }
+    since_flush += n;
+    if (since_flush >= MERGE_INTERVAL_BYTES) {
+      flush_local(local_histogram);
+      since_flush = 0;
+    }
+  }
+
+  fclose(f);
+  flush_local(local_histogram);  // don't lose the tail of the file
+  return 0;
 }
 
 void *worker(void *arg) {
