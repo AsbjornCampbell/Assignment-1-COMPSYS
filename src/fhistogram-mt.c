@@ -59,6 +59,7 @@ int fhistogram(char const *path) {
     pthread_mutex_unlock(&stdout_mutex);
     return -1;
   }
+
   int local_histogram[8] = { 0 };
   unsigned char buf[4096];
   size_t since_flush = 0;
@@ -76,18 +77,19 @@ int fhistogram(char const *path) {
   }
 
   fclose(f);
-  flush_local(local_histogram);  // don't lose the tail of the file
+  flush_local(local_histogram);
   return 0;
 }
 
-void *worker(void *arg) {
+static void *worker(void *arg) {
   struct job_queue *jq = arg;
-
-  // TODO: loop mens job_queue_pop(...) returnerer 0
-  //   - kald fhistogram med filnavnet
-  //   - free filnavnet
-  // TODO: return NULL
-  return NULL;
+  void *job;
+  while (job_queue_pop(jq, &job) == 0) {
+    char *path = job;
+    fhistogram(path);
+    free(path);  // we own the strdup'ed string
+  }
+  return NULL; 
 }
 
 
@@ -118,8 +120,17 @@ int main(int argc, char * const *argv) {
     paths = &argv[1];
   }
 
-  assert(0); // Initialise the job queue and some worker threads here.
+  struct job_queue jq;
+  if (job_queue_init(&jq, 64) != 0) {
+    errx(1, "job_queue_init() failed");
+  }
 
+  pthread_t *threads = calloc(num_threads, sizeof(pthread_t));
+  for (int i = 0; i < num_threads; i++) {
+    if (pthread_create(&threads[i], NULL, &worker, &jq) != 0) {
+      err(1, "pthread_create() failed");
+    }
+  }
   // FTS_LOGICAL = follow symbolic links
   // FTS_NOCHDIR = do not change the working directory of the process
   //
@@ -139,17 +150,29 @@ int main(int argc, char * const *argv) {
     case FTS_D:
       break;
     case FTS_F:
-      assert(0); // Process the file p->fts_path, somehow.
+      char *copy = strdup(p->fts_path);  // fts reuses p->fts_path
+      if (copy == NULL) {
+        err(1, "strdup() failed");
+      }
+      if (job_queue_push(&jq, copy) != 0) {
+        free(copy);  // queue refused it, so nobody else will free it
+      }
       break;
     default:
       break;
     }
   }
-
   fts_close(ftsp);
 
-  assert(0); // Shut down the job queue and the worker threads here.
+  job_queue_destroy(&jq);  // waits for the queue to drain, wakes idle workers
+  for (int i = 0; i < num_threads; i++) {
+    pthread_join(threads[i], NULL);  // wait for in-progress files to finish
+  }
+  free(threads);
 
+  // Rate-limited printing may have skipped the last update, so show
+  // the final, complete result. All threads are joined, so no lock needed.
+  print_histogram(global_histogram);
   move_lines(9);
 
   return 0;
