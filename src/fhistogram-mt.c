@@ -1,4 +1,4 @@
-// Setting _DEFAULT_SOURCE is necessary to activate visibility of
+// Setting _DEFAULT_SOURCE is necessary to test visibility of
 // certain header file contents on GNU/Linux systems.
 #define _DEFAULT_SOURCE
 
