@@ -5,14 +5,15 @@ Run all commands from the `src` directory.
 ### Compile
 
 make all
+
 ## Correctness
-confirm correctness by running following bash commands. If output is empty they are equal
+Confirm correctness by running following bash commands. If output is empty they are equal
 ./fhistogram benchmark_data > base.txt
 ./fhistogram-mt -n 4 benchmark_data > mt.txt
  tail -n 10 base.txt > base_final.txt
  tail -n 10 mt.txt > mt_final.txt
  diff -u base_final.txt mt_final.txt
- 
+
 ### Generate the benchmark datasets
 The benchmarks use three datasets. Each dataset contains a total of 512 MiB.
 
