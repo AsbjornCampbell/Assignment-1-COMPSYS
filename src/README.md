@@ -28,6 +28,7 @@ python3 generate_testdata.py --output data_large --files 16 --mib-per-file 32 --
 
 
 ### Run the benchmarks
+Run the fauxgrep benchmarks
 For the small dataset:
 
 /usr/bin/time -p ./fauxgrep THREAD_NEEDLE_42 data_small > /dev/null
@@ -52,3 +53,31 @@ For the large dataset:
 /usr/bin/time -p ./fauxgrep-mt -n 2 THREAD_NEEDLE_42 data_large > /dev/null
 /usr/bin/time -p ./fauxgrep-mt -n 4 THREAD_NEEDLE_42 data_large > /dev/null
 /usr/bin/time -p ./fauxgrep-mt -n 8 THREAD_NEEDLE_42 data_large > /dev/null
+
+Run the fhistogram benchmarks
+
+For the small dataset:
+
+/usr/bin/time -p ./fhistogram data_small > /dev/null
+/usr/bin/time -p ./fhistogram-mt -n 1 data_small > /dev/null
+/usr/bin/time -p ./fhistogram-mt -n 2 data_small > /dev/null
+/usr/bin/time -p ./fhistogram-mt -n 4 data_small > /dev/null
+/usr/bin/time -p ./fhistogram-mt -n 8 data_small > /dev/null
+
+For the balanced dataset:
+
+/usr/bin/time -p ./fhistogram data_balanced > /dev/null
+/usr/bin/time -p ./fhistogram-mt -n 1 data_balanced > /dev/null
+/usr/bin/time -p ./fhistogram-mt -n 2 data_balanced > /dev/null
+/usr/bin/time -p ./fhistogram-mt -n 4 data_balanced > /dev/null
+/usr/bin/time -p ./fhistogram-mt -n 8 data_balanced > /dev/null
+
+For the large dataset:
+
+/usr/bin/time -p ./fhistogram data_large > /dev/null
+/usr/bin/time -p ./fhistogram-mt -n 1 data_large > /dev/null
+/usr/bin/time -p ./fhistogram-mt -n 2 data_large > /dev/null
+/usr/bin/time -p ./fhistogram-mt -n 4 data_large > /dev/null
+/usr/bin/time -p ./fhistogram-mt -n 8 data_large > /dev/null
+
+Each configuration should be run five times. The median of the five measured real times is used in the report.
