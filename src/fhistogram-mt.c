@@ -92,7 +92,6 @@ static void *worker(void *arg) {
   return NULL; 
 }
 
-
 int main(int argc, char * const *argv) {
   if (argc < 2) {
     err(1, "usage: paths...");
