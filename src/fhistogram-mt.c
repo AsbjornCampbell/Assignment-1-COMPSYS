@@ -62,21 +62,20 @@ int fhistogram(char const *path) {
   }
 
   int local_histogram[8] = { 0 };
-  unsigned char buf[4096];
+  unsigned char c;
   size_t since_flush = 0;
   size_t n;
 
-  while ((n = fread(buf, 1, sizeof(buf), f)) > 0) {
-    for (size_t j = 0; j < n; j++) {
-      update_histogram(local_histogram, buf[j]);
-    }
-    since_flush += n;
+  while ((fread(&c, sizeof(c), 1, f)) == 1) {
+    update_histogram(local_histogram, c);
+
+    since_flush ++;
+    
     if (since_flush >= MERGE_INTERVAL_BYTES) {
       flush_local(local_histogram);
       since_flush = 0;
     }
   }
-
   fclose(f);
   flush_local(local_histogram);
   return 0;
